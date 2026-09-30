@@ -1,1068 +1,459 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>WePlay Friends</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Card Counter</title>
 <style>
 *{box-sizing:border-box}
-html,body{margin:0;min-height:100%;overflow-x:hidden}
-body{font-family:Arial,sans-serif;background:#f5f5f5;color:#222}
-header{background:#5865f2;color:#fff;padding:20px;position:relative;z-index:1000}
-header h1{margin:0}
-.container{max-width:1000px;margin:auto;padding:20px}
-nav{position:relative;z-index:1001;margin-top:15px;display:flex;gap:8px;flex-wrap:wrap;pointer-events:auto}
-button{border:0;border-radius:8px;padding:10px 15px;cursor:pointer;font-weight:bold;background:#5865f2;color:#fff;position:relative;z-index:1002;pointer-events:auto;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
-button.gray{background:#e5e7eb;color:#222}
-button.red{background:#dc3545;color:#fff}
-button:disabled{opacity:.5;cursor:not-allowed}
-input,textarea{width:100%;padding:11px;border:1px solid #ddd;border-radius:8px;font-size:15px}
-textarea{min-height:120px;resize:vertical}
-label{display:block;margin-top:15px;margin-bottom:5px;font-weight:bold}
-.small{font-size:13px;color:#777}
-.error{color:#d00;font-weight:bold}
-.success{color:green;font-weight:bold}
-.card,.profile-card,.application-item,.report-box{background:#fff;padding:18px;border-radius:15px;box-shadow:0 3px 12px rgba(0,0,0,.06);margin-bottom:15px}
-.hidden{display:none!important}
-.profile-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:15px}
-.profile-image{width:100px;height:100px;border-radius:50%;object-fit:cover;background:#eee}
-.online{color:#16a34a;font-weight:bold}
-.offline{color:#888}
-.profile-message{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6}
-.application-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
-.report-box{border:1px solid #ddd;box-shadow:none}
-#authCard{max-width:460px;margin:35px auto}
-#startupError{white-space:pre-wrap}
-@media(max-width:600px){
-nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
-nav button{width:100%;min-height:48px}
-.application-actions{flex-direction:column}
-.application-actions button{width:100%}
-.search-row{display:flex;gap:8px;flex-wrap:wrap}
-.search-row input{flex:1 1 180px}
-.search-row button{flex:0 0 auto}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#10131a;color:#f5f7fb}
+header{padding:16px 16px 10px;position:sticky;top:0;background:#10131aee;backdrop-filter:blur(10px);z-index:5;border-bottom:1px solid #252a35}
+h1{font-size:20px;margin:0 0 4px}
+.sub{font-size:12px;color:#9ca6b8}
+nav{display:flex;gap:8px;padding:10px 12px;position:sticky;top:69px;background:#10131af2;z-index:4}
+nav button,.primary,.ghost{border:0;border-radius:10px;padding:11px 14px;background:#252b37;color:#fff;font-weight:700}
+nav button.active,.primary{background:#3b82f6}
+.ghost{background:#202530}
+main{max-width:900px;margin:auto;padding:12px}
+.panel{background:#171b23;border:1px solid #272d39;border-radius:14px;padding:14px;margin-bottom:12px}
+h2{font-size:16px;margin:0 0 12px}
+.hint{font-size:12px;color:#9ca6b8;margin-bottom:10px}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.card{min-height:72px;border:1px solid #303746;border-radius:10px;background:#202530;color:#fff;font-size:20px;font-weight:800}
+.card.red{color:#ff6b76}
+.card.selected{outline:3px solid #3b82f6;background:#273957}
+.badge{display:inline-block;padding:4px 8px;border-radius:999px;background:#273043;color:#cbd5e1;font-size:11px;margin:2px}
+.categories{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.cat{padding:12px;border:1px solid #343b49;border-radius:10px;background:#202530;color:#fff;text-align:left;font-weight:700}
+.cat.on{background:#294a77;border-color:#4d9aff}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.hidden{display:none}
+.table{width:100%;border-collapse:collapse;font-size:13px}
+.table th,.table td{padding:9px;border-bottom:1px solid #2a303c;text-align:left}
+.muted{color:#9ca6b8}
+.statgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.statbox{background:#202530;border-radius:10px;padding:12px}
+.num{font-size:24px;font-weight:800}
+.small{font-size:11px;color:#9ca6b8}
+select{background:#202530;color:#fff;border:1px solid #343b49;border-radius:9px;padding:9px}
+@media(min-width:700px){
+.cards{grid-template-columns:repeat(13,1fr)}
+.categories{grid-template-columns:repeat(3,1fr)}
 }
 </style>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
+
 <body>
 
 <header>
-<div class="container">
-<h1>WePlay Friends</h1>
-<div class="small" style="color:#fff;margin-top:6px;">ログイン状態はこの端末で保持されます</div>
-<nav id="mainNav" aria-label="メインメニュー">
-<button type="button" class="nav-link" data-page="home">プロフィール一覧</button>
-<button type="button" class="nav-link" data-page="my">自分のプロフィール</button>
-<button type="button" class="nav-link" data-page="applications">申請一覧 <span id="applicationBadge"></span></button>
-<button type="button" class="nav-link gray hidden" id="adminNav" data-page="admin">管理者</button>
-<button type="button" class="nav-link gray hidden" id="logoutBtn">ログアウト</button>
-</nav>
-</div>
+<h1>Card Counter</h1>
+<div class="sub">公開用の記録・集計ツール（記録したデータを事実として集計）</div>
 </header>
 
-<div class="container">
-<section id="startupError" class="card error hidden"></section>
-<section id="banScreen" class="card hidden" aria-live="assertive" style="max-width:620px;margin:60px auto;text-align:center;">
-<h2>アカウントがBANされています</h2>
-<p>このアカウントは現在利用できません。</p>
-<button type="button" class="red" id="banLogoutBtn">ログアウト</button>
+<nav>
+<button id="recordTab" class="active">記録</button>
+<button id="statsTab">統計</button>
+</nav>
+
+<main>
+
+<section id="record">
+
+<div class="panel">
+<h2>① 最初にオープンされたカード</h2>
+<div class="hint">カードを1枚選択してください。</div>
+
+<div id="cards" class="cards"></div>
+
+<div id="chosen" class="hint" style="margin-top:10px">
+未選択
+</div>
+</div>
+
+<div id="categoryPanel" class="panel hidden">
+
+<h2>② 結果を複数選択</h2>
+
+<div class="hint">
+当てはまる項目を複数押せます。選択後「保存」を押してください。
+</div>
+
+<div id="categories" class="categories"></div>
+
+<div class="row" style="margin-top:12px">
+<button id="save" class="primary">保存</button>
+<button id="clear" class="ghost">選択解除</button>
+</div>
+
+</div>
+
+<div class="panel">
+
+<h2>記録状況</h2>
+
+<div id="summary" class="muted">
+まだ記録がありません。
+</div>
+
+</div>
+
 </section>
 
-<section id="auth" class="card">
-<div id="authCard">
-<h2>アカウント登録・ログイン</h2>
-<p class="small">1人1アカウントで利用します。確認メールのリンクを開くと認証が完了します。</p>
-<label for="authEmail">メールアドレス</label>
-<input id="authEmail" type="email" autocomplete="email">
-<label for="authPassword">パスワード</label>
-<input id="authPassword" type="password" autocomplete="current-password">
-<div class="application-actions">
-<button type="button" id="registerBtn">新規登録</button>
-<button type="button" id="loginBtn">ログイン</button>
+
+<section id="stats" class="hidden">
+
+<div class="panel">
+
+<h2>統計</h2>
+
+<div class="hint">
+このページは保存された記録を集計します。
 </div>
-<p id="authStatus" class="small"></p>
+
+<div class="statgrid">
+
+<div class="statbox">
+<div class="small">総記録数</div>
+<div id="total" class="num">0</div>
 </div>
+
+<div class="statbox">
+<div class="small">カード種類</div>
+<div id="cardKinds" class="num">0</div>
+</div>
+
+</div>
+
+</div>
+
+<div class="panel">
+<h2>項目ごとのカード集計</h2>
+<div id="categoryStats"></div>
+</div>
+
+<div class="panel">
+<h2>カードごとの結果</h2>
+<div id="cardStats"></div>
+</div>
+
 </section>
-
-<main id="app" class="hidden">
-<section id="home">
-<div class="card">
-<h2>プロフィール一覧</h2>
-<div class="search-row">
-<input id="search" placeholder="名前・WePlay IDで検索">
-<button type="button" id="searchBtn">検索</button>
-</div>
-<p class="small">ボイスルームを開いている人はオンラインと表示されます。</p>
-</div>
-<div id="profileList" class="profile-grid"></div>
-</section>
-
-\<section id="my" class="hidden">
-  \<div class="card">
-    \<h2>自分のプロフィール\</h2>
-    \<div id="myProfile">\</div>
-    \<hr>
-    \<h3>プロフィール編集\</h3>
-    \<form id="profileForm">
-      \<label for="name">ニックネーム\</label>\<input id="name" maxlength="20" required>
-      \<label for="weplayId">WePlay ID\</label>\<input id="weplayId" maxlength="20" required>
-      \<label for="age">年齢\</label>\<input id="age" type="number" min="1" max="999" required>
-      \<label for="roomId">ボイスルームID\</label>\<input id="roomId" maxlength="20">
-      \<label for="message">ひとこと\</label>\<textarea id="message" maxlength="200">\</textarea>
-      \<label for="image">プロフィール画像\</label>\<input id="image" type="file" accept="image/\*">
-      \<img id="imagePreview" class="profile-image hidden" alt="">
-      \<div class="application-actions">
-        \<button type="submit">プロフィールを保存\</button>
-      \</div>
-      \<p id="formMessage" class="small">\</p>
-    \</form>
-  \</div>
-\</section>
-
-\<section id="applications" class="hidden">
-  \<div class="card">
-    \<h2>申請一覧\</h2>
-    \<div id="applicationList">\</div>
-  \</div>
-\</section>
-
-\<section id="admin" class="hidden">
-  \<div class="card">
-    \<h2>管理者\</h2>
-    \<div id="adminUsers">\</div>
-    \<h3>通報一覧\</h3>
-    \<div id="adminReports">\</div>
-  \</div>
-\</section>
 
 </main>
-</div>
 
 <script>
-"use strict";
 
-const SUPABASE_URL = 'https://tlpgfuewaxyktoiicysh.supabase.co';
-const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_jPuuKLv6-ASObZZj3fIKGg_X20QYZuZ';
+const suits=[
+["♠","black"],
+["♥","red"],
+["♦","red"],
+["♣","black"]
+];
 
-let supabaseClient = null;
-let currentUser = null;
-let isAdmin = false;
-let banMonitorTimer = null;
-let banRealtimeChannel = null;
-let banCheckInProgress = false;
-let banScreenVisible = false;
-let selectedImageFile = null;
-const ONLINE_TIME = 30 * 60 * 1000;
-const APPROVED_KEEP_DAYS = 7;
+const ranks=[
+"A","K","Q","J","10","9","8","7","6","5","4","3","2"
+];
 
-const $ = id => document.getElementById(id);
-const esc = v => String(v ?? "")
-.replaceAll("&","&")
-.replaceAll("<","<")
-.replaceAll(">",">")
-.replaceAll('"',""")
-.replaceAll("'","'");
+const categories=[
+"青勝ち",
+"赤勝ち",
+"タイ",
+"スーコネ",
+"ワンペア",
+"ツーペア",
+"スリーカード",
+"フルハウス",
+"ペア",
+"AA",
+"フォーカード"
+];
 
-function setStartupError(message) {
-const el = $("startupError");
-if (!el) return;
-el.textContent = message;
-el.classList.remove("hidden");
+const records=[];
+
+let selectedCard=null;
+let selectedCats=new Set();
+
+
+const cardsEl=document.getElementById("cards");
+
+for(const [s,color] of suits)
+for(const r of ranks){
+
+const b=document.createElement("button");
+
+b.className="card "+(color==="red"?"red":"");
+
+b.textContent=s+r;
+
+b.onclick=()=>{
+
+selectedCard=s+r;
+
+document
+.querySelectorAll(".card")
+.forEach(x=>x.classList.remove("selected"));
+
+b.classList.add("selected");
+
+document.getElementById("chosen").textContent=
+"選択中："+s+r;
+
+document
+.getElementById("categoryPanel")
+.classList.remove("hidden");
+
+};
+
+cardsEl.appendChild(b);
+
 }
 
-function requireSupabase() {
-if (!supabaseClient) throw new Error("Supabaseが初期化されていません。");
-return supabaseClient;
+
+const catsEl=document.getElementById("categories");
+
+categories.forEach(c=>{
+
+const b=document.createElement("button");
+
+b.className="cat";
+
+b.textContent=c;
+
+b.onclick=()=>{
+
+if(selectedCats.has(c)){
+
+selectedCats.delete(c);
+b.classList.remove("on");
+
+}else{
+
+selectedCats.add(c);
+b.classList.add("on");
+
 }
 
-function online(p) {
-return !!(p.room_id && p.online_until &&
-new Date(p.online_until).getTime() > Date.now());
-}
+};
 
-async function getProfile(id = currentUser?.id) {
-if (!id) return null;
-const sb = requireSupabase();
-const {data,error} = await sb.from("profiles").select("*").eq("id",id).maybeSingle();
-if (error) throw error;
-return data;
-}
+catsEl.appendChild(b);
 
-async function ensureProfile() {
-if (!currentUser) return null;
-let profile = await getProfile();
-if (!profile) {
-const sb = requireSupabase();
-const {data,error} = await sb.from("profiles").insert({
-id:currentUser.id,
-name:"新しいユーザー",
-weplay_id:"WP_" + currentUser.id.replaceAll("-","").slice(0,12)
-}).select().single();
-if (error) throw error;
-profile = data;
-}
-return profile;
-}
+});
 
-async function refreshAdminState() {
-if (!currentUser) {
-isAdmin = false;
-$("adminNav").classList.add("hidden");
+
+function save(){
+
+if(!selectedCard || !selectedCats.size){
+
+alert("カードと結果を1つ以上選択してください。");
+
 return;
-}
-const sb = requireSupabase();
-const {data,error} = await sb.from("admin_users")
-.select("user_id").eq("user_id",currentUser.id).maybeSingle();
-isAdmin = !error && !!data;
-$("adminNav").classList.toggle("hidden",!isAdmin);
-}
-
-async function showPage(page) {
-if (!currentUser) return;
-const pages = document.querySelectorAll("#app > section");
-pages.forEach(s => s.classList.add("hidden"));
-
-const target = $(page);
-if (!target) return;
-
-target.classList.remove("hidden");
-
-try {
-if (page === "home") await renderProfiles();
-if (page === "my") await renderMyProfile();
-if (page === "applications") await renderApplications();
-if (page === "admin" && isAdmin) await renderAdmin();
-} catch (e) {
-console.error("ページ表示エラー:", e);
-target.insertAdjacentHTML("afterbegin",
-'<div class="card error">読み込みエラー：' + esc(e.message) + '</div>');
-}
-window.scrollTo({top:0,behavior:"auto"});
-}
-
-function setBanScreen(visible) {
-console.log("[SET BAN SCREEN]", visible);
-banScreenVisible = !!visible;
-
-const ban = $("banScreen");
-const app = $("app");
-const auth = $("auth");
-const nav = $("mainNav");
-
-if (!ban) {
-console.error("[SET BAN SCREEN] #banScreen がDOMに存在しません。");
-return;
-}
-
-ban.classList.toggle("hidden", !visible);
-
-if (visible) {
-app?.classList.add("hidden");
-auth?.classList.add("hidden");
-nav?.classList.add("hidden");
-} else if (currentUser) {
-auth?.classList.add("hidden");
-app?.classList.remove("hidden");
-nav?.classList.remove("hidden");
-} else {
-app?.classList.add("hidden");
-auth?.classList.remove("hidden");
-nav?.classList.remove("hidden");
-}
-}
-
-async function fetchOwnBanState() {
-console.log("[PROFILE BAN CHECK]", {
-userId: currentUser?.id || null,
-clientReady: !!supabaseClient
-});
-
-if (!currentUser?.id) {
-console.log("[BAN RESULT]", "currentUserなし");
-return false;
-}
-
-const sb = requireSupabase();
-
-const { data, error } = await sb
-.from("profiles")
-.select("banned")
-.eq("id", currentUser.id)
-.maybeSingle();
-
-if (error) {
-console.error("[BAN RESULT] Supabase query error:", error);
-throw error;
-}
-
-const banned = data?.banned === true;
-
-console.log("[BAN RESULT]", {
-data,
-banned,
-bannedType: typeof data?.banned
-});
-
-return banned;
-}
-
-async function enforceCurrentBanState() {
-if (banCheckInProgress) return banScreenVisible;
-banCheckInProgress = true;
-
-try {
-if (!currentUser?.id) {
-setBanScreen(false);
-return false;
-}
-
-const banned = await fetchOwnBanState();
-setBanScreen(banned);
-return banned;
-
-} catch (e) {
-console.error("[BAN RESULT] BAN確認失敗:", e);
-// 確認に失敗した場合は安全側に倒し、通常アプリを表示しない。
-setBanScreen(false);
-throw e;
-} finally {
-banCheckInProgress = false;
-}
-}
-
-function stopBanMonitor() {
-if (banMonitorTimer) {
-clearInterval(banMonitorTimer);
-banMonitorTimer = null;
-}
-
-if (banRealtimeChannel && supabaseClient) {
-try {
-supabaseClient.removeChannel(banRealtimeChannel);
-} catch (e) {
-console.warn("[BAN REALTIME] channel cleanup error:", e);
-}
-}
-banRealtimeChannel = null;
-}
-
-function startBanMonitor() {
-stopBanMonitor();
-
-if (!currentUser?.id) return;
-
-// Realtime: profiles の自分の行だけを監視。
-try {
-banRealtimeChannel = requireSupabase()
-.channel("own-profile-ban-" + currentUser.id)
-.on(
-"postgres_changes",
-{
-event: "UPDATE",
-schema: "public",
-table: "profiles",
-filter: "id=eq." + currentUser.id
-},
-payload => {
-console.log("[BAN REALTIME]", payload);
-const banned = payload?.new?.banned === true;
-setBanScreen(banned);
-
-      // BAN解除後も、DBの最新値を再確認してから通常画面へ戻す。
-      if (!banned) {
-        enforceCurrentBanState()
-          .then(isBanned => {
-            if (!isBanned && currentUser) {
-              showPage("home").catch(e =>
-                console.error("[BAN REALTIME] home復帰エラー:", e)
-              );
-            }
-          })
-          .catch(e => console.error("[BAN REALTIME] 再確認エラー:", e));
-      }
-    }
-  )
-  .subscribe(status => {
-    console.log("[BAN REALTIME STATUS]", status);
-  });
-
-} catch (e) {
-console.error("[BAN REALTIME] 初期化エラー:", e);
-}
-
-// Realtimeが動かなくても3秒ごとにDBを確認。
-banMonitorTimer = setInterval(async () => {
-if (!currentUser?.id) return;
-
-try {
-  const wasVisible = banScreenVisible;
-  const banned = await enforceCurrentBanState();
-
-  if (wasVisible && !banned && currentUser) {
-    await showPage("home");
-    await updateApplicationBadge();
-  }
-} catch (e) {
-  console.error("[BAN POLL] 3秒チェックエラー:", e);
-}
-
-}, 3000);
-}
-
-async function applySession(session) {
-console.log("[AUTH]", {
-hasSession: !!session,
-userId: session?.user?.id || null,
-eventUser: session?.user?.email || null
-});
-
-// セッション切替時は通常画面を先に表示しない。
-stopBanMonitor();
-currentUser = session?.user || null;
-isAdmin = false;
-banScreenVisible = false;
-
-$("app").classList.add("hidden");
-$("auth").classList.toggle("hidden", !!currentUser);
-$("logoutBtn").classList.toggle("hidden", !currentUser);
-$("adminNav").classList.add("hidden");
-
-if (!currentUser) {
-setBanScreen(false);
-return;
-}
-
-// BAN確認が完了するまで通常アプリを絶対に表示しない。
-try {
-const banned = await enforceCurrentBanState();
-
-if (banned) {
-  // BAN中はプロフィール作成・管理者確認・ホーム描画等を一切開始しない。
-  startBanMonitor();
-  return;
-}
-
-// BAN確認成功後にだけ通常初期化を開始する。
-$("auth").classList.add("hidden");
-$("app").classList.remove("hidden");
-$("mainNav").classList.remove("hidden");
-
-await ensureProfile();
-await refreshAdminState();
-await showPage("home");
-await updateApplicationBadge();
-
-startBanMonitor();
-
-} catch (e) {
-console.error("ログイン後の初期化エラー:", e);
-$("app").classList.add("hidden");
-$("auth").classList.add("hidden");
-$("authStatus").textContent = "BAN状態の確認に失敗しました。通常画面は表示していません。";
-startBanMonitor();
-}
-}
-
-async function updateAuthUI() {
-const sb = requireSupabase();
-const {data:{session}} = await sb.auth.getSession();
-await applySession(session);
-}
-
-async function registerAccount() {
-const email = $("authEmail").value.trim();
-const password = $("authPassword").value;
-if (!email || !password) {
-$("authStatus").textContent = "メールアドレスとパスワードを入力してください。";
-return;
-}
-if (password.length < 6) {
-$("authStatus").textContent = "パスワードは6文字以上にしてください。";
-return;
-}
-
-$("authStatus").textContent = "登録中…";
-const sb = requireSupabase();
-const {data,error} = await sb.auth.signUp({
-email,password,
-options:{emailRedirectTo:location.href.split("#")[0]}
-});
-
-if (error) {
-$("authStatus").textContent = "登録エラー: " + error.message;
-return;
-}
-$("authStatus").textContent = data.session
-? "登録完了しました。"
-: "確認メールを送信しました。メールのリンクを開いてください。";
-}
-
-async function loginAccount() {
-const email = $("authEmail").value.trim();
-const password = $("authPassword").value;
-if (!email || !password) {
-$("authStatus").textContent = "メールアドレスとパスワードを入力してください。";
-return;
-}
-
-$("authStatus").textContent = "ログイン中…";
-const sb = requireSupabase();
-const {error} = await sb.auth.signInWithPassword({email,password});
-if (error) {
-$("authStatus").textContent = "ログインエラー: " + error.message;
-return;
-}
-$("authStatus").textContent = "ログイン成功！";
-}
-
-async function loadProfiles() {
-const sb = requireSupabase();
-let q = sb.from("profiles").select("*")
-.eq("banned",false).order("created_at",{ascending:false});
-const search = $("search").value.trim();
-if (search) q = q.or(`name.ilike.%${search}%,weplay_id.ilike.%${search}%`);
-
-const {data,error} = await q;
-if (error) {
-$("profileList").innerHTML =
-'<div class="card error">読み込みエラー：' + esc(error.message) + '</div>';
-return [];
-}
-return data || [];
-}
-
-async function renderProfiles() {
-if (!currentUser) return;
-const list = await loadProfiles();
-if (!list.length) {
-$("profileList").innerHTML = '<div class="card">プロフィールがありません。</div>';
-return;
-}
-
-$("profileList").innerHTML = list.map(p => {
-const self = p.id === currentUser.id;
-return `<div class="profile-card">
-${p.image_path ? `<img src="${esc(p.image_path)}" class="profile-image" alt="">` : ""}
-<h3>${esc(p.name)}</h3>
-<p>年齢：${esc(p.age)}</p>
-<p class="${online(p) ? "online" : "offline"}">${online(p) ? "● オンライン" : "○ オフライン"}</p>
-<p class="profile-message">${esc(p.message)}</p>
-${!self ? `<div class="application-actions">
-<button type="button" data-action="friend" data-id="${esc(p.id)}">相手に申請</button>
-<button type="button" class="gray" data-action="report" data-id="${esc(p.id)}">通報</button>
-</div>` : ""}
-</div>`;
-}).join("");
-}
-
-async function renderMyProfile() {
-const p = await ensureProfile();
-if (!p) return;
 
-$("myProfile").innerHTML = `<div>
-${p.image_path ? `<img src="${esc(p.image_path)}" class="profile-image" alt="">` : ""}
-<h3>${esc(p.name)}</h3>
-<p>WePlay ID：${esc(p.weplay_id)}</p>
-<p>年齢：${esc(p.age)}</p>
-<p>ボイスルームID：${esc(p.room_id || "未設定")}</p>
-<p class="profile-message">${esc(p.message || "")}</p>
-</div>`;
-
-$("name").value = p.name || "";
-$("weplayId").value = p.weplay_id || "";
-$("age").value = p.age || "";
-$("roomId").value = p.room_id || "";
-$("message").value = p.message || "";
-
-if (p.image_path) {
-$("imagePreview").src = p.image_path;
-$("imagePreview").classList.remove("hidden");
-} else {
-$("imagePreview").classList.add("hidden");
-$("imagePreview").removeAttribute("src");
-}
-}
-
-$("image").addEventListener("change", e => {
-selectedImageFile = e.target.files?.[0] || null;
-if (!selectedImageFile) return;
-const url = URL.createObjectURL(selectedImageFile);
-$("imagePreview").src = url;
-$("imagePreview").classList.remove("hidden");
-});
-
-async function saveProfile(e) {
-e.preventDefault();
-if (!currentUser) return;
-
-const name = $("name").value.trim();
-const weplayId = $("weplayId").value.trim();
-const age = Number($("age").value);
-const roomId = $("roomId").value.trim();
-const message = $("message").value;
-
-if (!name || !weplayId || !age) {
-$("formMessage").textContent = "必須項目を入力してください。";
-return;
-}
-if (name.length > 20 || weplayId.length > 20 ||
-roomId.length > 20 || message.length > 200) {
-$("formMessage").textContent = "文字数制限を確認してください。";
-return;
-}
-if (age < 1 || age > 999) {
-$("formMessage").textContent = "年齢は1～999で入力してください。";
-return;
-}
-
-try {
-const existing = await getProfile();
-let imagePath = existing?.image_path || "";
-
-if (selectedImageFile) {
-  if (selectedImageFile.size > 2 \* 1024 \* 1024) {
-    $("formMessage").textContent = "画像は2MB以下にしてください。";
-    return;
-  }
-  const ext = (selectedImageFile.name.split(".").pop() || "jpg")
-    .toLowerCase().replace(/[^a-z0-9]/g,"") || "jpg";
-  const path = \`${currentUser.id}/${Date.now()}.${ext}\`;
-  const sb = requireSupabase();
-  const {error\:uploadError} = await sb.storage.from("avatars")
-    .upload(path,selectedImageFile,{upsert\:true,contentType\:selectedImageFile.type || "image/jpeg"});
-  if (uploadError) {
-    $("formMessage").textContent = "画像アップロードエラー：" + uploadError.message;
-    return;
-  }
-  imagePath = sb.storage.from("avatars").getPublicUrl(path).data.publicUrl;
-}
-
-const sb = requireSupabase();
-const {error} = await sb.from("profiles").update({
-  name,weplay\_id\:weplayId,age,room\_id\:roomId,message,
-  image\_path\:imagePath,
-  online\_until\:roomId ? new Date(Date.now()+ONLINE\_TIME).toISOString() : null,
-  updated\_at\:new Date().toISOString()
-}).eq("id",currentUser.id);
-
-if (error) {
-  $("formMessage").textContent = "保存エラー：" + error.message;
-  return;
-}
-
-$("formMessage").textContent = "プロフィールを保存しました。";
-selectedImageFile = null;
-$("image").value = "";
-await renderMyProfile();
-await renderProfiles();
-
-} catch (e) {
-console.error("プロフィール保存エラー:", e);
-$("formMessage").textContent = "保存エラー：" + e.message;
-}
-}
-
-async function sendFriendRequest(targetId) {
-if (!currentUser || targetId === currentUser.id) return;
-const sb = requireSupabase();
-
-const {data:target} = await sb.from("profiles")
-.select("id,banned").eq("id",targetId).maybeSingle();
-if (!target || target.banned) {
-alert("このプロフィールには申請できません。");
-return;
-}
-
-const {data:existing} = await sb.from("friend_requests")
-.select("id,from_user_id,to_user_id").eq("status","pending")
-.or(`from_user_id.eq.${currentUser.id},to_user_id.eq.${currentUser.id}`);
-
-if ((existing || []).some(x =>
-(x.from_user_id === currentUser.id && x.to_user_id === targetId) ||
-(x.from_user_id === targetId && x.to_user_id === currentUser.id))) {
-alert("すでに申請があります。");
-return;
-}
-
-const {error} = await sb.from("friend_requests").insert({
-from_user_id:currentUser.id,to_user_id:targetId,status:"pending"
-});
-alert(error ? "申請エラー：" + error.message : "申請を送りました。");
-await renderProfiles();
-await renderApplications();
-await updateApplicationBadge();
-}
-
-async function updateApplicationBadge() {
-if (!currentUser) return;
-const sb = requireSupabase();
-const {count} = await sb.from("friend_requests")
-.select("id",{count:"exact",head:true})
-.eq("to_user_id",currentUser.id).eq("status","pending");
-$("applicationBadge").textContent = count ? `(${count})` : "";
-}
-
-async function approveApplication(id) {
-const sb = requireSupabase();
-const {data:app} = await sb.from("friend_requests").select("*")
-.eq("id",id).eq("to_user_id",currentUser.id).eq("status","pending").maybeSingle();
-if (!app) return;
-
-const {error:updateError} = await sb.from("friend_requests")
-.update({status:"approved",updated_at:new Date().toISOString()})
-.eq("id",id).eq("to_user_id",currentUser.id);
-if (updateError) {
-alert("許可エラー：" + updateError.message);
-return;
-}
-
-const {data:other} = await sb.from("profiles")
-.select("id,name,weplay_id,room_id").eq("id",app.from_user_id).single();
-
-if (other) {
-const {error} = await sb.from("approved_contacts").insert({
-application_id:id,owner_id:currentUser.id,other_user_id:other.id,
-other_name:other.name,weplay_id:other.weplay_id,room_id:other.room_id || "",
-expires_at:new Date(Date.now()+APPROVED_KEEP_DAYS*86400000).toISOString()
-});
-if (error) console.error("連絡先保存エラー:", error);
-}
-
-alert("申請を許可しました。連絡先情報は7日間保存されます。");
-await renderApplications();
-await updateApplicationBadge();
-}
-
-async function rejectApplication(id) {
-const sb = requireSupabase();
-await sb.from("friend_requests").update({
-status:"rejected",updated_at:new Date().toISOString()
-}).eq("id",id).eq("to_user_id",currentUser.id);
-await renderApplications();
-await updateApplicationBadge();
-}
-
-async function cancelFriendRequest(id) {
-const sb = requireSupabase();
-await sb.from("friend_requests").update({
-status:"cancelled",updated_at:new Date().toISOString()
-}).eq("id",id).eq("from_user_id",currentUser.id);
-await renderApplications();
-await updateApplicationBadge();
-}
-
-async function renderApplications() {
-if (!currentUser) return;
-const sb = requireSupabase();
-
-const {data:apps} = await sb.from("friend_requests").select("*")
-.or(`from_user_id.eq.${currentUser.id},to_user_id.eq.${currentUser.id}`)
-.eq("status","pending").order("created_at",{ascending:false});
-
-const {data:contacts} = await sb.from("approved_contacts").select("*")
-.eq("owner_id",currentUser.id).gt("expires_at",new Date().toISOString())
-.order("created_at",{ascending:false});
-
-const users = await loadProfiles();
-const byId = Object.fromEntries(users.map(u => [u.id,u]));
-const incoming = (apps || []).filter(a => a.to_user_id === currentUser.id);
-const outgoing = (apps || []).filter(a => a.from_user_id === currentUser.id);
-
-let out = "<h3>届いた申請</h3>";
-if (!incoming.length) out += '<p class="small">届いた申請はありません。</p>';
-
-for (const a of incoming) {
-const u = byId[a.from_user_id];
-if (!u) continue;
-out += `<div class="application-item">
-<h3>${esc(u.name)}</h3>
-<p>年齢：${esc(u.age)}</p>
-<p class="profile-message">${esc(u.message || "")}</p>
-<div class="application-actions">
-<button type="button" data-action="approve" data-id="${esc(a.id)}">申請を許可</button>
-<button type="button" class="gray" data-action="reject" data-id="${esc(a.id)}">断る</button>
-</div>
-</div>`;
-}
-
-out += "<h3>許可したフレンド</h3>";
-if (!contacts?.length) out += '<p class="small">許可したフレンドはいません。</p>';
-for (const c of contacts || []) {
-out += `<div class="application-item">
-<h3>${esc(c.other_name)}</h3>
-<p>WePlay ID：${esc(c.weplay_id || "未設定")}</p>
-<p>ボイスルームID：${esc(c.room_id || "未設定")}</p>
-<p class="small">有効期限：${new Date(c.expires_at).toLocaleString("ja-JP")}</p>
-</div>`;
-}
-
-out += "<h3>送った申請</h3>";
-if (!outgoing.length) out += '<p class="small">送った申請はありません。</p>';
-for (const a of outgoing) {
-const u = byId[a.to_user_id];
-if (!u) continue;
-out += `<div class="application-item">
-<h3>${esc(u.name)}</h3>
-<p>申請中です。</p>
-<button type="button" class="gray" data-action="cancel" data-id="${esc(a.id)}">申請を取り消す</button>
-</div>`;
-}
-
-$("applicationList").innerHTML = out;
-}
-
-async function reportUser(targetId) {
-const detail = prompt("通報内容を入力してください（50文字まで）");
-if (detail === null) return;
-const value = detail.trim();
-if (!value) { alert("通報内容を入力してください。"); return; }
-if (value.length > 50) { alert("通報内容は50文字までです。"); return; }
-
-const sb = requireSupabase();
-const {error} = await sb.rpc("submit_report", {
-p_target_user_id:targetId,p_detail:value
-});
-alert(error ? "通報エラー：" + error.message : "通報を受け付けました。");
-}
-
-async function renderAdmin() {
-if (!isAdmin) return;
-const sb = requireSupabase();
-
-const {data:users} = await sb.from("profiles").select("*")
-.order("created_at",{ascending:false});
-$("adminUsers").innerHTML = (users || []).map(u => `
-<div class="report-box">
-<strong>${esc(u.name)}</strong><br>
-WePlay ID：${esc(u.weplay_id)}<br>
-状態：${u.banned ? "BAN中" : "利用中"}<br><br>
-${u.banned
-? `<button type="button" data-action="unban" data-id="${esc(u.id)}">BAN解除</button>`
-: `<button type="button" class="red" data-action="ban" data-id="${esc(u.id)}">BAN</button>`}
-</div>`).join("") || "<p>ユーザーはいません。</p>";
-
-const {data:reports} = await sb.from("reports").select("*")
-.neq("status","deleted").order("created_at",{ascending:false});
-$("adminReports").innerHTML = (reports || []).map(r => `
-<div class="report-box">
-<strong>通報対象：${esc((users || []).find(u => u.id === r.target_user_id)?.name || "削除済みユーザー")}</strong>
-<p>通報内容：${esc(r.detail)}</p>
-<p class="small">${new Date(r.created_at).toLocaleString("ja-JP")}</p>
-<button type="button" class="red" data-action="delete-report" data-id="${esc(r.id)}">通報を削除</button>
-</div>`).join("") || "<p>現在通報はありません。</p>";
-}
-
-async function banUser(id) {
-if (!isAdmin || !confirm("このユーザーをBANしますか？")) return;
-const sb = requireSupabase();
-const {error} = await sb.from("profiles").update({
-banned:true,updated_at:new Date().toISOString()
-}).eq("id",id);
-
-if (!error) {
-const {error:banError} = await sb.from("bans").insert({
-user_id:id,banned_by:currentUser.id,reason:"管理者によるBAN"
-});
-if (banError) console.error("BAN履歴保存エラー:", banError);
-}
-if (error) alert("BANエラー：" + error.message);
-await renderAdmin();
-await renderProfiles();
-}
-
-async function unbanUser(id) {
-if (!isAdmin) return;
-const sb = requireSupabase();
-const {error} = await sb.from("profiles")
-.update({banned:false,updated_at:new Date().toISOString()}).eq("id",id);
-if (error) alert("BAN解除エラー：" + error.message);
-else await renderAdmin();
-}
-
-async function deleteReport(id) {
-if (!isAdmin) return;
-const sb = requireSupabase();
-const {error} = await sb.from("reports").update({
-status:"deleted",
-reviewed_at:new Date().toISOString(),
-reviewed_by:currentUser.id
-}).eq("id",id);
-if (error) alert("通報削除エラー：" + error.message);
-await renderAdmin();
-}
-
-function installNavigationHandlers() {
-// ナビはSupabaseの状態に関係なく先にイベントを登録する。
-document.querySelectorAll(".nav-link").forEach(button => {
-button.addEventListener("click", async event => {
-event.preventDefault();
-event.stopPropagation();
-
-  const page = button.dataset.page;
-  if (!currentUser) {
-    $("authStatus").textContent = "ログインするとこの画面を利用できます。";
-    $("authEmail").focus();
-    return;
-  }
-  if (page === "admin" && !isAdmin) {
-    alert("管理者権限がありません。");
-    return;
-  }
-
-  button.disabled = true;
-  try {
-    await showPage(page);
-  } catch (e) {
-    console.error("ナビゲーションエラー:", e);
-  } finally {
-    button.disabled = false;
-  }
-});
-
-});
-}
-
-function installDynamicButtonHandlers() {
-document.addEventListener("click", async event => {
-const button = event.target.closest("[data-action]");
-if (!button) return;
-
-event.preventDefault();
-event.stopPropagation();
-if (button.disabled) return;
-
-const id = button.dataset.id;
-button.disabled = true;
-
-try {
-  switch (button.dataset.action) {
-    case "friend": await sendFriendRequest(id); break;
-    case "report": await reportUser(id); break;
-    case "approve": await approveApplication(id); break;
-    case "reject": await rejectApplication(id); break;
-    case "cancel": await cancelFriendRequest(id); break;
-    case "ban": await banUser(id); break;
-    case "unban": await unbanUser(id); break;
-    case "delete-report": await deleteReport(id); break;
-  }
-} catch (e) {
-  console.error("ボタン処理エラー:", e);
-  alert("処理中にエラーが発生しました：" + e.message);
-} finally {
-  button.disabled = false;
-}
-
-});
 }
-
-async function init() {
-// 最重要：UIイベントをSupabase初期化より先に登録する。
-installNavigationHandlers();
-installDynamicButtonHandlers();
-
-$("registerBtn").addEventListener("click", async () => {
-try { await registerAccount(); }
-catch (e) { console.error(e); $("authStatus").textContent = "登録エラー：" + e.message; }
-});
 
-$("loginBtn").addEventListener("click", async () => {
-try { await loginAccount(); }
-catch (e) { console.error(e); $("authStatus").textContent = "ログインエラー：" + e.message; }
-});
+records.push({
 
-$("profileForm").addEventListener("submit", async e => {
-try { await saveProfile(e); }
-catch (err) { console.error(err); $("formMessage").textContent = "保存エラー：" + err.message; }
-});
+card:selectedCard,
 
-$("searchBtn").addEventListener("click", async () => {
-if (!currentUser) return;
-try { await renderProfiles(); }
-catch (e) { console.error(e); }
-});
+categories:[...selectedCats],
 
-$("search").addEventListener("keydown", async e => {
-if (e.key !== "Enter") return;
-e.preventDefault();
-if (!currentUser) return;
-try { await renderProfiles(); }
-catch (err) { console.error(err); }
-});
-
-$("banLogoutBtn").addEventListener("click", () => {
-$("logoutBtn").click();
-});
-
-$("logoutBtn").addEventListener("click", async () => {
-const button = $("logoutBtn");
-if (!currentUser || button.disabled) return;
-
-if (!confirm("ログアウトしますか？")) return;
-
-button.disabled = true;
-try {
-  const { error } = await requireSupabase().auth.signOut();
-  if (error) throw error;
-
-  // Authイベントでも更新されるが、ここでも即時にUIを閉じる。
-  stopBanMonitor();
-  currentUser = null;
-  isAdmin = false;
-  setBanScreen(false);
-  $("logoutBtn").classList.add("hidden");
-  $("adminNav").classList.add("hidden");
-  $("app").classList.add("hidden");
-  $("auth").classList.remove("hidden");
-  $("authStatus").textContent = "ログアウトしました。";
-  $("authPassword").value = "";
-  window\.scrollTo({top:0,behavior:"auto"});
-} catch (e) {
-  console.error("ログアウトエラー:", e);
-  $("authStatus").textContent = "ログアウトエラー：" + e.message;
-} finally {
-  button.disabled = false;
-}
+time:new Date().toISOString()
 
 });
 
-// Supabase CDNが読み込めない場合でも、原因を画面に表示する。
-if (!window.supabase || typeof window.supabase.createClient !== "function") {
-setStartupError(
-"Supabaseライブラリを読み込めませんでした。\n" +
-"インターネット接続、またはCDNへのアクセスを確認してください。"
-);
-return;
+selectedCats.clear();
+
+document
+.querySelectorAll(".cat")
+.forEach(x=>x.classList.remove("on"));
+
+updateSummary();
+
+renderStats();
+
 }
 
-try {
-supabaseClient = window.supabase.createClient(
-SUPABASE_URL,
-SUPABASE_PUBLISHABLE_KEY,
-{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}}
+
+function updateSummary(){
+
+document.getElementById("summary").innerHTML=
+
+records.length
+
+? `総記録：<b>${records.length}</b>件<br>
+<span class="muted">
+最後の記録：${records[records.length-1].card}
+</span>`
+
+: "まだ記録がありません。";
+
+}
+
+
+document.getElementById("save").onclick=save;
+
+
+document.getElementById("clear").onclick=()=>{
+
+selectedCats.clear();
+
+document
+.querySelectorAll(".cat")
+.forEach(x=>x.classList.remove("on"));
+
+};
+
+
+function renderStats(){
+
+document.getElementById("total").textContent=
+records.length;
+
+document.getElementById("cardKinds").textContent=
+new Set(records.map(r=>r.card)).size;
+
+
+const cs=categories.map(c=>{
+
+const arr=records.filter(
+r=>r.categories.includes(c)
 );
 
-// AuthイベントではgetSession()を呼び直さず、渡されたsessionをそのまま使う。
-supabaseClient.auth.onAuthStateChange((\_event, session) => {
-  // SupabaseのAuthコールバック内で重い処理を同期実行しない。
-  setTimeout(() => {
-    applySession(session).catch(e => console.error("Auth UI error:", e));
-  }, 0);
+const counts={};
+
+arr.forEach(r=>{
+counts[r.card]=(counts[r.card]||0)+1;
 });
 
-await updateAuthUI();
+const max=Math.max(
+0,
+...Object.values(counts)
+);
 
-} catch (e) {
-console.error("Supabase初期化エラー:", e);
-setStartupError("Supabase初期化エラー：\n" + e.message);
-}
+const tops=Object.entries(counts)
+.filter(([,n])=>n===max)
+.map(([k])=>k);
+
+return{
+c,
+n:arr.length,
+tops,
+max
+};
+
+});
+
+
+document.getElementById("categoryStats").innerHTML=
+
+cs.map(x=>
+
+`<div style="padding:10px 0;border-bottom:1px solid #2a303c">
+
+<b>${x.c}</b>：${x.n}件
+
+${x.n
+? `（最多：${x.tops.join(" / ")} ${x.max}件）`
+: ""}
+
+</div>`
+
+).join("");
+
+
+const by={};
+
+records.forEach(r=>{
+
+by[r.card]??={};
+
+r.categories.forEach(c=>{
+
+by[r.card][c]=(by[r.card][c]||0)+1;
+
+});
+
+});
+
+
+const rows=Object.entries(by).sort();
+
+
+document.getElementById("cardStats").innerHTML=
+
+rows.length
+
+?
+
+`<table class="table">
+
+<thead>
+
+<tr>
+
+<th>カード</th>
+
+${categories
+.map(c=>`<th>${c}</th>`)
+.join("")}
+
+</tr>
+
+</thead>
+
+<tbody>
+
+${rows.map(([card,v])=>
+
+`<tr>
+
+<td><b>${card}</b></td>
+
+${categories
+.map(c=>`<td>${v[c]||0}</td>`)
+.join("")}
+
+</tr>`
+
+).join("")}
+
+</tbody>
+
+</table>`
+
+:
+
+"<div class='muted'>記録がありません。</div>";
+
 }
 
-if (document.readyState === "loading") {
-document.addEventListener("DOMContentLoaded", init, {once:true});
-} else {
-init();
-}
+
+document.getElementById("recordTab").onclick=()=>{
+
+recordTab.classList.add("active");
+
+statsTab.classList.remove("active");
+
+record.classList.remove("hidden");
+
+stats.classList.add("hidden");
+
+};
+
+
+document.getElementById("statsTab").onclick=()=>{
+
+statsTab.classList.add("active");
+
+recordTab.classList.remove("active");
+
+record.classList.add("hidden");
+
+stats.classList.remove("hidden");
+
+renderStats();
+
+};
+
 </script>
+
 </body>
 </html>

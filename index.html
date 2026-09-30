@@ -1,9 +1,13 @@
+```html
 <!doctype html>
 <html lang="ja">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Card Counter</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
 <style>
 *{box-sizing:border-box}
 body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#10131a;color:#f5f7fb}
@@ -11,7 +15,7 @@ header{padding:16px 16px 10px;position:sticky;top:0;background:#10131aee;backdro
 h1{font-size:20px;margin:0 0 4px}
 .sub{font-size:12px;color:#9ca6b8}
 nav{display:flex;gap:8px;padding:10px 12px;position:sticky;top:69px;background:#10131af2;z-index:4}
-nav button,.primary,.ghost{border:0;border-radius:10px;padding:11px 14px;background:#252b37;color:#fff;font-weight:700}
+nav button,.primary,.ghost{border:0;border-radius:10px;padding:11px 14px;background:#252b37;color:#fff;font-weight:700;cursor:pointer}
 nav button.active,.primary{background:#3b82f6}
 .ghost{background:#202530}
 main{max-width:900px;margin:auto;padding:12px}
@@ -19,23 +23,28 @@ main{max-width:900px;margin:auto;padding:12px}
 h2{font-size:16px;margin:0 0 12px}
 .hint{font-size:12px;color:#9ca6b8;margin-bottom:10px}
 .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
-.card{min-height:72px;border:1px solid #303746;border-radius:10px;background:#202530;color:#fff;font-size:20px;font-weight:800}
+.card{min-height:72px;border:1px solid #303746;border-radius:10px;background:#202530;color:#fff;font-size:20px;font-weight:800;cursor:pointer}
 .card.red{color:#ff6b76}
 .card.selected{outline:3px solid #3b82f6;background:#273957}
-.badge{display:inline-block;padding:4px 8px;border-radius:999px;background:#273043;color:#cbd5e1;font-size:11px;margin:2px}
 .categories{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
-.cat{padding:12px;border:1px solid #343b49;border-radius:10px;background:#202530;color:#fff;text-align:left;font-weight:700}
+.cat{padding:12px;border:1px solid #343b49;border-radius:10px;background:#202530;color:#fff;text-align:left;font-weight:700;cursor:pointer}
 .cat.on{background:#294a77;border-color:#4d9aff}
 .row{display:flex;gap:8px;flex-wrap:wrap}
-.hidden{display:none}
+.hidden{display:none!important}
 .table{width:100%;border-collapse:collapse;font-size:13px}
-.table th,.table td{padding:9px;border-bottom:1px solid #2a303c;text-align:left}
+.table th,.table td{padding:9px;border-bottom:1px solid #2a303c;text-align:center}
+.table th:first-child,.table td:first-child{text-align:left}
 .muted{color:#9ca6b8}
 .statgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
 .statbox{background:#202530;border-radius:10px;padding:12px}
 .num{font-size:24px;font-weight:800}
 .small{font-size:11px;color:#9ca6b8}
-select{background:#202530;color:#fff;border:1px solid #343b49;border-radius:9px;padding:9px}
+.auth{max-width:460px;margin:30px auto}
+input{width:100%;padding:11px;border:1px solid #343b49;border-radius:9px;background:#202530;color:#fff;margin-bottom:8px}
+.status{font-size:12px;color:#9ca6b8;margin-top:8px}
+.loading{text-align:center;padding:20px;color:#9ca6b8}
+.card-black{background:#202530;color:#fff;border-radius:6px;padding:3px 6px}
+.card-red{color:#ff6b76}
 @media(min-width:700px){
 .cards{grid-template-columns:repeat(13,1fr)}
 .categories{grid-template-columns:repeat(3,1fr)}
@@ -49,6 +58,28 @@ select{background:#202530;color:#fff;border:1px solid #343b49;border-radius:9px;
 <h1>Card Counter</h1>
 <div class="sub">公開用の記録・集計ツール（記録したデータを事実として集計）</div>
 </header>
+
+<div id="authPanel" class="panel auth hidden">
+
+<h2>ログイン</h2>
+
+<div class="hint">
+カードカウンターを使うにはログインしてください。
+</div>
+
+<input id="email" type="email" placeholder="メールアドレス">
+<input id="password" type="password" placeholder="パスワード">
+
+<div class="row">
+<button id="loginBtn" class="primary">ログイン</button>
+<button id="signupBtn" class="ghost">新規登録</button>
+</div>
+
+<div id="authStatus" class="status"></div>
+
+</div>
+
+<div id="app" class="hidden">
 
 <nav>
 <button id="recordTab" class="active">記録</button>
@@ -92,13 +123,12 @@ select{background:#202530;color:#fff;border:1px solid #343b49;border-radius:9px;
 <h2>記録状況</h2>
 
 <div id="summary" class="muted">
-まだ記録がありません。
+読み込み中...
 </div>
 
 </div>
 
 </section>
-
 
 <section id="stats" class="hidden">
 
@@ -107,7 +137,7 @@ select{background:#202530;color:#fff;border:1px solid #343b49;border-radius:9px;
 <h2>統計</h2>
 
 <div class="hint">
-このページは保存された記録を集計します。
+保存された記録を集計しています。
 </div>
 
 <div class="statgrid">
@@ -140,7 +170,25 @@ select{background:#202530;color:#fff;border:1px solid #343b49;border-radius:9px;
 
 </main>
 
+</div>
+
 <script>
+
+const SUPABASE_URL =
+'https://tlpgfuewaxyktoiicysh.supabase.co';
+
+const SUPABASE_PUBLISHABLE_KEY =
+'sb_publishable_jPuuKLv6-ASObZZj3fIKGg_X20QYZuZ';
+
+const GROUP_ID =
+'00000000-0000-0000-0000-000000000001';
+
+const supabaseClient =
+window.supabase.createClient(
+SUPABASE_URL,
+SUPABASE_PUBLISHABLE_KEY
+);
+
 
 const suits=[
 ["♠","black"],
@@ -167,10 +215,10 @@ const categories=[
 "フォーカード"
 ];
 
-const records=[];
-
+let records=[];
 let selectedCard=null;
 let selectedCats=new Set();
+let currentUser=null;
 
 
 const cardsEl=document.getElementById("cards");
@@ -180,7 +228,8 @@ for(const r of ranks){
 
 const b=document.createElement("button");
 
-b.className="card "+(color==="red"?"red":"");
+b.className=
+"card "+(color==="red"?"red":"");
 
 b.textContent=s+r;
 
@@ -208,14 +257,14 @@ cardsEl.appendChild(b);
 }
 
 
-const catsEl=document.getElementById("categories");
+const catsEl=
+document.getElementById("categories");
 
 categories.forEach(c=>{
 
 const b=document.createElement("button");
 
 b.className="cat";
-
 b.textContent=c;
 
 b.onclick=()=>{
@@ -239,67 +288,142 @@ catsEl.appendChild(b);
 });
 
 
-function save(){
+async function loadRecords(){
 
-if(!selectedCard || !selectedCats.size){
+const {data,error}=
+await supabaseClient
+.from("card_records")
+.select("id,card,categories,created_at")
+.eq("group_id",GROUP_ID)
+.order("created_at",{ascending:true});
 
-alert("カードと結果を1つ以上選択してください。");
+if(error){
+
+console.error(error);
+
+document.getElementById("summary").innerHTML=
+"<span style='color:#ff6b76'>"+
+"データ読み込みエラー："+error.message+
+"</span>";
 
 return;
 
 }
 
-records.push({
+records=data||[];
 
+updateSummary();
+renderStats();
+
+}
+
+
+async function save(){
+
+if(!selectedCard || !selectedCats.size){
+
+alert(
+"カードと結果を1つ以上選択してください。"
+);
+
+return;
+
+}
+
+if(!currentUser){
+
+alert("ログインしてください。");
+
+return;
+
+}
+
+const cats=[...selectedCats];
+
+const {data,error}=
+await supabaseClient
+.from("card_records")
+.insert({
+
+group_id:GROUP_ID,
+user_id:currentUser.id,
 card:selectedCard,
+categories:cats
 
-categories:[...selectedCats],
+})
+.select("id,card,categories,created_at")
+.single();
 
-time:new Date().toISOString()
+if(error){
 
-});
+console.error(error);
+
+alert(
+"保存に失敗しました。\n"+
+error.message
+);
+
+return;
+
+}
+
+records.push(data);
 
 selectedCats.clear();
 
 document
 .querySelectorAll(".cat")
-.forEach(x=>x.classList.remove("on"));
+.forEach(x=>
+x.classList.remove("on")
+);
 
 updateSummary();
-
 renderStats();
+
+alert("保存しました。");
 
 }
 
 
 function updateSummary(){
 
+if(!records.length){
+
 document.getElementById("summary").innerHTML=
+"まだ記録がありません。";
 
-records.length
+return;
 
-? `総記録：<b>${records.length}</b>件<br>
+}
+
+const last=
+records[records.length-1];
+
+const time=
+new Date(last.created_at)
+.toLocaleString("ja-JP");
+
+document.getElementById("summary").innerHTML=
+`総記録：<b>${records.length}</b>件<br>
 <span class="muted">
-最後の記録：${records[records.length-1].card}
-</span>`
-
-: "まだ記録がありません。";
+最後の記録：${last.card} / ${time}
+</span>`;
 
 }
 
 
-document.getElementById("save").onclick=save;
+function cardColor(card){
 
+if(card.startsWith("♥") ||
+card.startsWith("♦")){
 
-document.getElementById("clear").onclick=()=>{
+return "card-red";
 
-selectedCats.clear();
+}
 
-document
-.querySelectorAll(".cat")
-.forEach(x=>x.classList.remove("on"));
+return "card-black";
 
-};
+}
 
 
 function renderStats(){
@@ -311,10 +435,13 @@ document.getElementById("cardKinds").textContent=
 new Set(records.map(r=>r.card)).size;
 
 
+/* 項目ごとのカード集計 */
+
 const cs=categories.map(c=>{
 
-const arr=records.filter(
-r=>r.categories.includes(c)
+const arr=
+records.filter(r=>
+r.categories.includes(c)
 );
 
 const counts={};
@@ -323,12 +450,11 @@ arr.forEach(r=>{
 counts[r.card]=(counts[r.card]||0)+1;
 });
 
-const max=Math.max(
-0,
-...Object.values(counts)
-);
+const max=
+Math.max(0,...Object.values(counts));
 
-const tops=Object.entries(counts)
+const tops=
+Object.entries(counts)
 .filter(([,n])=>n===max)
 .map(([k])=>k);
 
@@ -344,46 +470,70 @@ max
 
 document.getElementById("categoryStats").innerHTML=
 
-cs.map(x=>
+cs.map(x=>{
 
-`<div style="padding:10px 0;border-bottom:1px solid #2a303c">
+let topText="";
+
+if(x.n){
+
+topText=
+`<div class="small" style="margin-top:5px">
+最多：
+${x.tops.map(card=>
+`<span class="${cardColor(card)}">${card}</span>`
+).join(" / ")}
+（${x.max}件）
+</div>`;
+
+}
+
+return`
+
+<div style="
+padding:10px 0;
+border-bottom:1px solid #2a303c
+">
 
 <b>${x.c}</b>：${x.n}件
 
-${x.n
-? `（最多：${x.tops.join(" / ")} ${x.max}件）`
-: ""}
+${topText}
 
-</div>`
+</div>`;
 
-).join("");
+}).join("");
 
+
+/* 52枚すべてのカードを集計 */
 
 const by={};
 
 records.forEach(r=>{
 
-by[r.card]??={};
+if(!by[r.card])
+by[r.card]={};
 
 r.categories.forEach(c=>{
 
-by[r.card][c]=(by[r.card][c]||0)+1;
+by[r.card][c]=
+(by[r.card][c]||0)+1;
 
 });
 
 });
 
 
-const rows=Object.entries(by).sort();
+const allCards=[];
+
+for(const [s] of suits)
+for(const r of ranks)
+allCards.push(s+r);
 
 
 document.getElementById("cardStats").innerHTML=
 
-rows.length
+`<div style="overflow-x:auto">
 
-?
-
-`<table class="table">
+<table class="table">
 
 <thead>
 
@@ -401,39 +551,64 @@ ${categories
 
 <tbody>
 
-${rows.map(([card,v])=>
+${allCards.map(card=>{
 
-`<tr>
+const v=by[card]||{};
 
-<td><b>${card}</b></td>
+return`
+
+<tr>
+
+<td>
+<b class="${cardColor(card)}">
+${card}
+</b>
+</td>
 
 ${categories
-.map(c=>`<td>${v[c]||0}</td>`)
+.map(c=>`
+<td>
+${v[c]||0}
+</td>
+`)
 .join("")}
 
-</tr>`
+</tr>`;
 
-).join("")}
+}).join("")}
 
 </tbody>
 
-</table>`
+</table>
 
-:
-
-"<div class='muted'>記録がありません。</div>";
+</div>`;
 
 }
+
+
+document.getElementById("save").onclick=
+save;
+
+
+document.getElementById("clear").onclick=()=>{
+
+selectedCats.clear();
+
+document
+.querySelectorAll(".cat")
+.forEach(x=>
+x.classList.remove("on")
+);
+
+};
 
 
 document.getElementById("recordTab").onclick=()=>{
 
 recordTab.classList.add("active");
-
 statsTab.classList.remove("active");
 
 record.classList.remove("hidden");
-
 stats.classList.add("hidden");
 
 };
@@ -442,18 +617,172 @@ stats.classList.add("hidden");
 document.getElementById("statsTab").onclick=()=>{
 
 statsTab.classList.add("active");
-
 recordTab.classList.remove("active");
 
 record.classList.add("hidden");
-
 stats.classList.remove("hidden");
 
 renderStats();
 
 };
 
+
+/* ログイン */
+
+document.getElementById("loginBtn").onclick=
+async()=>{
+
+const email=
+document.getElementById("email").value.trim();
+
+const password=
+document.getElementById("password").value;
+
+const status=
+document.getElementById("authStatus");
+
+status.textContent="ログイン中...";
+
+const {error}=
+await supabaseClient.auth.signInWithPassword({
+email,
+password
+});
+
+if(error){
+
+status.textContent=
+"ログインエラー："+error.message;
+
+return;
+
+}
+
+status.textContent="ログインしました。";
+
+};
+
+
+document.getElementById("signupBtn").onclick=
+async()=>{
+
+const email=
+document.getElementById("email").value.trim();
+
+const password=
+document.getElementById("password").value;
+
+const status=
+document.getElementById("authStatus");
+
+if(!email || !password){
+
+status.textContent=
+"メールアドレスとパスワードを入力してください。";
+
+return;
+
+}
+
+status.textContent="登録中...";
+
+const {data,error}=
+await supabaseClient.auth.signUp({
+
+email,
+password
+
+});
+
+if(error){
+
+status.textContent=
+"登録エラー："+error.message;
+
+return;
+
+}
+
+if(data.session){
+
+status.textContent=
+"登録しました。";
+
+}else{
+
+status.textContent=
+"登録しました。確認メールが届く場合があります。";
+
+}
+
+};
+
+
+/* 認証状態 */
+
+async function startApp(){
+
+const {
+data:{session}
+}=
+await supabaseClient.auth.getSession();
+
+if(session){
+
+currentUser=session.user;
+
+document
+.getElementById("authPanel")
+.classList.add("hidden");
+
+document
+.getElementById("app")
+.classList.remove("hidden");
+
+await loadRecords();
+
+}else{
+
+document
+.getElementById("authPanel")
+.classList.remove("hidden");
+
+document
+.getElementById("app")
+.classList.add("hidden");
+
+}
+
+}
+
+
+supabaseClient.auth.onAuthStateChange(
+async(event,session)=>{
+
+if(session){
+
+currentUser=session.user;
+
+document
+.getElementById("authPanel")
+.classList.add("hidden");
+
+document
+.getElementById("app")
+.classList.remove("hidden");
+
+await loadRecords();
+
+}
+
+});
+
+
+startApp();
+
 </script>
 
 </body>
 </html>
+```
+

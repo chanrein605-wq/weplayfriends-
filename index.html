@@ -126,8 +126,7 @@ async function save(){
  if(!currentUser){alert("ログインしてください。");return}
  const cats=[...selectedCats];
  const {data,error}=await supabaseClient.from("card_records").insert({group_id:GROUP_ID,user_id:currentUser.id,card:selectedCard,categories:cats}).select("id,card,categories,created_at").single();
- if(error){console.error(error);alert("保存に失敗しました。
-"+error.message);return}
+ if(error){console.error(error);alert("保存に失敗しました。\n"+error.message);return}
  records.push(data);selectedCats.clear();document.querySelectorAll(".cat").forEach(x=>x.classList.remove("on"));updateSummary();renderStats();renderStreaks();alert("保存しました。");
 }
 function updateSummary(){

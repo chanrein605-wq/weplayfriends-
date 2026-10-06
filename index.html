@@ -169,10 +169,42 @@ function renderStreaks(){
 
 document.getElementById("save").onclick=save;
 document.getElementById("clear").onclick=()=>{selectedCats.clear();document.querySelectorAll(".cat").forEach(x=>x.classList.remove("on"))};
-const record=document.getElementById("record"),stats=document.getElementById("stats"),streaks=document.getElementById("streaks");
-document.getElementById("recordTab").onclick=()=>{recordTab.classList.add("active");statsTab.classList.remove("active");streakTab.classList.remove("active");record.classList.remove("hidden");stats.classList.add("hidden");streaks.classList.add("hidden")};
-document.getElementById("statsTab").onclick=()=>{statsTab.classList.add("active");recordTab.classList.remove("active");streakTab.classList.remove("active");record.classList.add("hidden");stats.classList.remove("hidden");streaks.classList.add("hidden");renderStats()};
-document.getElementById("streakTab").onclick=()=>{streakTab.classList.add("active");recordTab.classList.remove("active");statsTab.classList.remove("active");record.classList.add("hidden");stats.classList.add("hidden");streaks.classList.remove("hidden");renderStreaks()};
+
+const record=document.getElementById("record");
+const stats=document.getElementById("stats");
+const streaks=document.getElementById("streaks");
+const recordTab=document.getElementById("recordTab");
+const statsTab=document.getElementById("statsTab");
+const streakTab=document.getElementById("streakTab");
+
+recordTab.onclick=()=>{
+  recordTab.classList.add("active");
+  statsTab.classList.remove("active");
+  streakTab.classList.remove("active");
+  record.classList.remove("hidden");
+  stats.classList.add("hidden");
+  streaks.classList.add("hidden");
+};
+
+statsTab.onclick=()=>{
+  statsTab.classList.add("active");
+  recordTab.classList.remove("active");
+  streakTab.classList.remove("active");
+  record.classList.add("hidden");
+  stats.classList.remove("hidden");
+  streaks.classList.add("hidden");
+  renderStats();
+};
+
+streakTab.onclick=()=>{
+  streakTab.classList.add("active");
+  recordTab.classList.remove("active");
+  statsTab.classList.remove("active");
+  record.classList.add("hidden");
+  stats.classList.add("hidden");
+  streaks.classList.remove("hidden");
+  renderStreaks();
+};
 
 document.getElementById("loginBtn").onclick=async()=>{const email=document.getElementById("email").value.trim();const password=document.getElementById("password").value;const status=document.getElementById("authStatus");status.textContent="ログイン中...";const {error}=await supabaseClient.auth.signInWithPassword({email,password});if(error){status.textContent="ログインエラー："+error.message;return}status.textContent="ログインしました。"};
 document.getElementById("signupBtn").onclick=async()=>{const email=document.getElementById("email").value.trim();const password=document.getElementById("password").value;const status=document.getElementById("authStatus");if(!email||!password){status.textContent="メールアドレスとパスワードを入力してください。";return}status.textContent="登録中...";const {data,error}=await supabaseClient.auth.signUp({email,password});if(error){status.textContent="登録エラー："+error.message;return}status.textContent=data.session?"登録しました。":"登録しました。確認メールが届く場合があります。"};
